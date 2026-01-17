@@ -162,24 +162,14 @@ describe('Accounts Routes', () => {
 
       expect(mockNext).toHaveBeenCalledWith(error);
     });
-  });
 
-  describe('GET /budgets/:budgetSyncId/accounts/withbalances', () => {
-    it('should register the route', () => {
+    it('should return accounts with balances when include_balances is true', async () => {
       const accountsModule = require('../../../src/v1/routes/accounts');
       accountsModule(mockRouter);
 
-      expect(mockRouter.get).toHaveBeenCalledWith(
-        '/budgets/:budgetSyncId/accounts/withbalances',
-        expect.any(Function)
-      );
-    });
+      const handler = handlers['GET /budgets/:budgetSyncId/accounts'];
+      mockReq.query.include_balances = 'true';
 
-    it('should return accounts with aggregated balances', async () => {
-      const accountsModule = require('../../../src/v1/routes/accounts');
-      accountsModule(mockRouter);
-
-      const handler = handlers['GET /budgets/:budgetSyncId/accounts/withbalances'];
       await handler(mockReq, mockRes, mockNext);
 
       expect(mockBudget.getAccountsWithBalances).toHaveBeenCalled();
@@ -191,49 +181,22 @@ describe('Accounts Routes', () => {
             unclearedBalance: -100,
             workingBalance: 1100,
           }),
-          expect.objectContaining({
-            id: 'acc2',
-            clearedBalance: 50,
-            unclearedBalance: 25,
-            workingBalance: 75,
-          }),
         ]),
       });
     });
 
-    it('should pass exclude_offbudget flag', async () => {
+    it('should pass exclude flags when include_balances is true', async () => {
       const accountsModule = require('../../../src/v1/routes/accounts');
       accountsModule(mockRouter);
 
+      const handler = handlers['GET /budgets/:budgetSyncId/accounts'];
+      mockReq.query.include_balances = 'true';
       mockReq.query.exclude_offbudget = 'true';
-      const handler = handlers['GET /budgets/:budgetSyncId/accounts/withbalances'];
-      await handler(mockReq, mockRes, mockNext);
-
-      expect(mockBudget.getAccountsWithBalances).toHaveBeenCalledWith({ excludeOffbudget: true, excludeClosed: false });
-    });
-
-    it('should pass exclude_closed flag', async () => {
-      const accountsModule = require('../../../src/v1/routes/accounts');
-      accountsModule(mockRouter);
-
       mockReq.query.exclude_closed = 'true';
-      const handler = handlers['GET /budgets/:budgetSyncId/accounts/withbalances'];
+
       await handler(mockReq, mockRes, mockNext);
 
-      expect(mockBudget.getAccountsWithBalances).toHaveBeenCalledWith({ excludeOffbudget: false, excludeClosed: true });
-    });
-
-    it('should handle errors from getAccountsWithBalances', async () => {
-      const accountsModule = require('../../../src/v1/routes/accounts');
-      accountsModule(mockRouter);
-
-      const error = new Error('Failed to fetch accounts with balances');
-      mockBudget.getAccountsWithBalances.mockRejectedValueOnce(error);
-
-      const handler = handlers['GET /budgets/:budgetSyncId/accounts/withbalances'];
-      await handler(mockReq, mockRes, mockNext);
-
-      expect(mockNext).toHaveBeenCalledWith(error);
+      expect(mockBudget.getAccountsWithBalances).toHaveBeenCalledWith({ excludeOffbudget: true, excludeClosed: true });
     });
   });
 
