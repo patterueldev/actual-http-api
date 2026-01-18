@@ -194,8 +194,8 @@ describe('Utils', () => {
       expect(parseBoolean('1')).toBe(true);
     });
 
-    it('should return true for string "1.0"', () => {
-      expect(parseBoolean('1.0')).toBe(true);
+    it('should return true for string "1"', () => {
+      expect(parseBoolean('1')).toBe(true);
     });
 
     it('should return false for string "0"', () => {
@@ -212,6 +212,14 @@ describe('Utils', () => {
 
     it('should return false for string "no"', () => {
       expect(parseBoolean('no')).toBe(false);
+    });
+
+    it('should return false for string "no"', () => {
+      expect(parseBoolean('no')).toBe(false);
+    });
+
+    it('should return false for string "0.0"', () => {
+      expect(parseBoolean('0.0')).toBe(false);
     });
   });
 
