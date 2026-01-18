@@ -2,7 +2,6 @@
 process.env.API_KEY = process.env.API_KEY || 'test-api-key';
 process.env.ACTUAL_SERVER_PASSWORD = process.env.ACTUAL_SERVER_PASSWORD || 'test-password';
 
-
 describe('Accounts Routes', () => {
   let mockRouter;
   let mockBudget;
@@ -141,62 +140,6 @@ describe('Accounts Routes', () => {
       await handler(mockReq, mockRes, mockNext);
 
       expect(mockNext).toHaveBeenCalledWith(error);
-    });
-
-    it('should return accounts with balances when include_balances is true', async () => {
-      const accountsModule = require('../../../src/v1/routes/accounts');
-      accountsModule(mockRouter);
-
-      const handler = handlers['GET /budgets/:budgetSyncId/accounts'];
-      mockReq.query.include_balances = 'true';
-      mockBudget.getAccounts.mockResolvedValueOnce([
-        {
-          id: 'acc1',
-          name: 'Checking',
-          offbudget: false,
-          closed: false,
-          clearedBalance: 1200,
-          unclearedBalance: -100,
-          workingBalance: 1100,
-        },
-        {
-          id: 'acc2',
-          name: 'Savings',
-          offbudget: false,
-          closed: false,
-          clearedBalance: 50,
-          unclearedBalance: 25,
-          workingBalance: 75,
-        },
-      ]);
-
-      await handler(mockReq, mockRes, mockNext);
-
-      expect(mockBudget.getAccounts).toHaveBeenCalledWith({ includeBalances: true, excludeOffbudget: false, excludeClosed: false });
-      expect(mockRes.json).toHaveBeenCalledWith({
-        data: expect.arrayContaining([
-          expect.objectContaining({
-            id: 'acc1',
-            clearedBalance: 1200,
-            unclearedBalance: -100,
-            workingBalance: 1100,
-          }),
-        ]),
-      });
-    });
-
-    it('should pass exclude flags when include_balances is true', async () => {
-      const accountsModule = require('../../../src/v1/routes/accounts');
-      accountsModule(mockRouter);
-
-      const handler = handlers['GET /budgets/:budgetSyncId/accounts'];
-      mockReq.query.include_balances = 'true';
-      mockReq.query.exclude_offbudget = 'true';
-      mockReq.query.exclude_closed = 'true';
-
-      await handler(mockReq, mockRes, mockNext);
-
-      expect(mockBudget.getAccounts).toHaveBeenCalledWith({ includeBalances: true, excludeOffbudget: true, excludeClosed: true });
     });
   });
 

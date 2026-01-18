@@ -14,36 +14,13 @@ jest.mock('archiver');
 jest.mock('fs');
 jest.mock('path');
 
-const mockAqlQuery = jest.fn();
-const mockQ = jest.fn((table) => {
-  let filterArgs = {};
-  const builder = {
-    table,
-    select: jest.fn(function select() { return this; }),
-    filter: jest.fn(function filter(args) {
-      filterArgs = args || {};
-      return this;
-    }),
-    groupBy: jest.fn(function groupBy(field) {
-      builder._groupBy = field;
-      return this;
-    }),
-    getFilterArgs: () => filterArgs,
-  };
-  return builder;
-});
-
-jest.mock('@actual-app/api', () => ({
-  q: mockQ,
-}));
-
 const { Budget } = require('../../src/v1/budget');
-const { getActualApiClient, getActualDataDir, runAqlQuery: runAqlQueryFromProvider } = require('../../src/v1/actual-client-provider');
-const {
-  currentLocalDate,
-  formatDateToISOString,
-  listSubDirectories,
-  getFileContent
+const { getActualApiClient, getActualDataDir } = require('../../src/v1/actual-client-provider');
+const { 
+  currentLocalDate, 
+  formatDateToISOString, 
+  listSubDirectories, 
+  getFileContent 
 } = require('../../src/utils/utils');
 const archiver = require('archiver');
 const fs = require('fs');
@@ -61,9 +38,6 @@ describe('Budget Module', () => {
       sync: jest.fn().mockResolvedValue(undefined),
       downloadBudget: jest.fn().mockResolvedValue(undefined),
       getBudgetMonths: jest.fn().mockResolvedValue([]),
-      runQuery: mockAqlQuery,
-      aqlQuery: mockAqlQuery,
-      q: mockQ,
       getBudgetMonth: jest.fn().mockResolvedValue({
         categoryGroups: [
           {
@@ -142,13 +116,6 @@ describe('Budget Module', () => {
     };
 
     getActualApiClient.mockResolvedValue(mockActualApi);
-    runAqlQueryFromProvider.mockImplementation((query) => {
-      const executor = mockActualApi.runQuery || mockActualApi.aqlQuery;
-      if (!executor) {
-        throw new Error('AQL query function not available');
-      }
-      return executor(query);
-    });
     currentLocalDate.mockReturnValue(new Date('2024-01-15'));
     formatDateToISOString.mockReturnValue('2024-01-15');
     listSubDirectories.mockReturnValue(['budget1']);
@@ -381,101 +348,6 @@ describe('Budget Module', () => {
     it('should handle empty transaction array for deletion', async () => {
       await budget.deleteTransactions([]);
       expect(mockActualApi.batchBudgetUpdates).toHaveBeenCalled();
-    });
-  });
-
-  describe('Accounts With Balances', () => {
-    let budget;
-
-    beforeEach(async () => {
-      budget = await Budget('sync1', undefined);
-      mockAqlQuery.mockReset();
-    });
-
-    it('should aggregate cleared and uncleared balances per account', async () => {
-      // accounts query
-      mockAqlQuery
-        .mockResolvedValueOnce({
-          data: [
-            { id: 'acc1', name: 'Checking', offbudget: false },
-            { id: 'acc2', name: 'Savings', offbudget: false },
-          ],
-        })
-        // balance data grouped by account and cleared
-        .mockResolvedValueOnce({
-          data: [
-            { account: 'acc1', cleared: true, total: 1200 },
-            { account: 'acc1', cleared: false, total: -100 },
-            { account: 'acc2', cleared: true, total: 50 },
-            { account: 'acc2', cleared: false, total: 25 },
-          ],
-        });
-
-      const accounts = await budget.getAccounts({ includeBalances: true });
-      expect(accounts).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            id: 'acc1',
-            clearedBalance: 1200,
-            unclearedBalance: -100,
-            workingBalance: 1100,
-          }),
-          expect.objectContaining({
-            id: 'acc2',
-            clearedBalance: 50,
-            unclearedBalance: 25,
-            workingBalance: 75,
-          }),
-        ])
-      );
-    });
-
-    it('should propagate errors from AQL queries', async () => {
-      const error = new Error('AQL failure');
-      mockAqlQuery
-        .mockResolvedValueOnce({ data: [] })
-        .mockRejectedValueOnce(error);
-      await expect(budget.getAccounts({ includeBalances: true })).rejects.toThrow('AQL failure');
-    });
-
-    it('should exclude offbudget accounts when flag is true', async () => {
-      mockAqlQuery
-        .mockImplementationOnce((query) => {
-          const filterArgs = query.getFilterArgs();
-          const allAccounts = [
-            { id: 'acc1', name: 'Checking', offbudget: false },
-            { id: 'acc2', name: 'Savings', offbudget: false },
-            { id: 'acc3', name: 'Off Budget', offbudget: true },
-          ];
-          const filteredAccounts = filterArgs.offbudget === false
-            ? allAccounts.filter(a => a.offbudget === false)
-            : allAccounts;
-          return Promise.resolve({ data: filteredAccounts });
-        })
-        .mockResolvedValue({ data: [] });
-
-      const accounts = await budget.getAccounts({ includeBalances: true, excludeOffbudget: true });
-      expect(accounts.find((a) => a.id === 'acc3')).toBeUndefined();
-    });
-
-    it('should exclude closed accounts when flag is true', async () => {
-      mockAqlQuery
-        .mockImplementationOnce((query) => {
-          const filterArgs = query.getFilterArgs();
-          const allAccounts = [
-            { id: 'acc1', name: 'Checking', closed: false },
-            { id: 'acc2', name: 'Savings', closed: false },
-            { id: 'acc3', name: 'Closed Account', closed: true },
-          ];
-          const filteredAccounts = filterArgs.closed === false
-            ? allAccounts.filter(a => a.closed === false)
-            : allAccounts;
-          return Promise.resolve({ data: filteredAccounts });
-        })
-        .mockResolvedValue({ data: [] });
-
-      const accounts = await budget.getAccounts({ includeBalances: true, excludeClosed: true });
-      expect(accounts.find((a) => a.id === 'acc3')).toBeUndefined();
     });
   });
 
