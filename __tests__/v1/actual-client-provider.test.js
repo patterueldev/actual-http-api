@@ -5,6 +5,7 @@ jest.mock('fs');
 jest.mock('@actual-app/api', () => ({
   init: jest.fn(),
   shutdown: jest.fn(),
+  aqlQuery: jest.fn(),
 }), { virtual: true });
 
 let provider;
@@ -114,6 +115,40 @@ describe('Actual Client Provider', () => {
         serverURL: 'http://localhost:5006',
         password: 'password',
       });
+    });
+  });
+
+  describe('runAqlQuery', () => {
+    it('should execute AQL query using API client', async () => {
+      const fs = require('fs');
+      fs.existsSync = jest.fn().mockReturnValue(true);
+      const mockQuery = { test: 'query' };
+      const mockResult = { data: [{ id: 1 }] };
+      const mockActualApi = {
+        init: jest.fn().mockResolvedValue(undefined),
+        shutdown: jest.fn().mockResolvedValue(undefined),
+        aqlQuery: jest.fn().mockResolvedValue(mockResult),
+      };
+      jest.doMock('@actual-app/api', () => mockActualApi);
+
+      const result = await provider.runAqlQuery(mockQuery);
+
+      expect(mockActualApi.aqlQuery).toHaveBeenCalledWith(mockQuery);
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should propagate errors from aqlQuery', async () => {
+      const fs = require('fs');
+      fs.existsSync = jest.fn().mockReturnValue(true);
+      const mockQuery = { test: 'query' };
+      const mockActualApi = {
+        init: jest.fn().mockResolvedValue(undefined),
+        shutdown: jest.fn().mockResolvedValue(undefined),
+        aqlQuery: jest.fn().mockRejectedValue(new Error('Query failed')),
+      };
+      jest.doMock('@actual-app/api', () => mockActualApi);
+
+      await expect(provider.runAqlQuery(mockQuery)).rejects.toThrow('Query failed');
     });
   });
 });

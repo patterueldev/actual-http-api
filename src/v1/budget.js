@@ -1,7 +1,6 @@
 
 const { currentLocalDate, formatDateToISOString, listSubDirectories, getFileContent } = require('../utils/utils');
-const { getActualApiClient, getActualDataDir } = require('./actual-client-provider');
-const { runQuery: aqlQuery, aqlQuery: directAqlQuery, q } = require('@actual-app/api');
+const { getActualApiClient, getActualDataDir, runAqlQuery } = require('./actual-client-provider');
 
 const archiver = require('archiver');
 const fs = require('fs');
@@ -69,26 +68,33 @@ async function Budget(budgetSyncId, budgetEncryptionPassword) {
     return categoryGroups.find((categoryGroup) => categoryGroupId == categoryGroup.id);
   }
 
-  async function getAccounts() {
-    return actualApi.getAccounts();
-  }
+  async function getAccounts({ includeBalances = false, excludeOffbudget = false, excludeClosed = false } = {}) {
+    if (!includeBalances) {
+      // backward compatibility
+      return actualApi.getAccounts();
+    }
 
-  async function getAccountsWithBalances({ excludeOffbudget = false, excludeClosed = false } = {}) {
-    const accountQuery = excludeOffbudget
-      ? q('accounts').select(['id', 'name', 'offbudget', 'closed']).filter({ offbudget: false })
-      : q('accounts').select(['id', 'name', 'offbudget', 'closed']);
+    const filter = {};
+    if (excludeOffbudget) filter.offbudget = false;
+    if (excludeClosed) filter.closed = false;
+
+    const accountQuery = actualApi.q('accounts')
+      .select(['id', 'name', 'offbudget', 'closed'])
+      .filter(filter);
 
     const data = await runAqlQuery(accountQuery);
-    const accounts = (data?.data || []).filter((account) => {
-      if (excludeOffbudget && account.offbudget) return false;
-      if (excludeClosed && account.closed) return false;
-      return true;
-    });
+    const accounts = data?.data || [];
+
     await Promise.all(
       accounts.map(async (account) => {
+        const transactionsQuery = function(clearedStatus) {
+          return actualApi.q('transactions')
+            .select('*')
+            .filter({ account: account.id, cleared: clearedStatus });
+        };
         const [cleared, uncleared] = await Promise.all([
-          runAqlQuery(q('transactions').select('*').filter({ account: account.id, cleared: true })),
-          runAqlQuery(q('transactions').select('*').filter({ account: account.id, cleared: false })),
+          runAqlQuery(transactionsQuery(true)),
+          runAqlQuery(transactionsQuery(false)),
         ]);
 
         const clearedBalance = sumTransactions(cleared?.data);
@@ -354,14 +360,6 @@ async function Budget(budgetSyncId, budgetEncryptionPassword) {
     };
   }
 
-  function runAqlQuery(query) {
-    const queryExecutor = aqlQuery || directAqlQuery;
-    if (!queryExecutor) {
-      throw new Error('AQL query function not available');
-    }
-    return queryExecutor(query);
-  }
-
   function sumTransactions(transactions = []) {
     return (transactions || []).reduce((total, transaction = {}) => {
       if (transaction.tombstone) {
@@ -387,7 +385,6 @@ async function Budget(budgetSyncId, budgetEncryptionPassword) {
     getMonthCategoryGroups: getMonthCategoryGroups,
     getMonthCategoryGroup: getMonthCategoryGroup,
     getAccounts: getAccounts,
-    getAccountsWithBalances: getAccountsWithBalances,
     getAccount: getAccount,
     getAccountBalance: getAccountBalance,
     createAccount: createAccount,

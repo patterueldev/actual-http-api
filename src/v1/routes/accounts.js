@@ -132,13 +132,14 @@ module.exports = (router) => {
   router.get('/budgets/:budgetSyncId/accounts', async (req, res, next) => {
     try {
       const includeBalances = req.query.include_balances === 'true' || req.query.include_balances === '1';
-      if (includeBalances) {
-        const excludeOffbudget = req.query.exclude_offbudget === 'true' || req.query.exclude_offbudget === '1';
-        const excludeClosed = req.query.exclude_closed === 'true' || req.query.exclude_closed === '1';
-        res.json({ data: await res.locals.budget.getAccountsWithBalances({ excludeOffbudget, excludeClosed }) });
-      } else {
-        res.json({ 'data': await res.locals.budget.getAccounts() });
-      }
+      const excludeOffbudget = req.query.exclude_offbudget === 'true' || req.query.exclude_offbudget === '1';
+      const excludeClosed = req.query.exclude_closed === 'true' || req.query.exclude_closed === '1';
+      
+      res.json({ data: await res.locals.budget.getAccounts({ 
+        includeBalances, 
+        excludeOffbudget, 
+        excludeClosed 
+      }) });
     } catch(err) {
       next(err);
     }

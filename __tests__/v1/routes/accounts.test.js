@@ -76,26 +76,6 @@ describe('Accounts Routes', () => {
       closeAccount: jest.fn().mockResolvedValue(undefined),
       reopenAccount: jest.fn().mockResolvedValue(undefined),
       runBankSync: jest.fn().mockResolvedValue(undefined),
-      getAccountsWithBalances: jest.fn().mockResolvedValue([
-        {
-          id: 'acc1',
-          name: 'Checking',
-          offbudget: false,
-          closed: false,
-          clearedBalance: 1200,
-          unclearedBalance: -100,
-          workingBalance: 1100,
-        },
-        {
-          id: 'acc2',
-          name: 'Savings',
-          offbudget: false,
-          closed: false,
-          clearedBalance: 50,
-          unclearedBalance: 25,
-          workingBalance: 75,
-        },
-      ]),
     };
 
     // Create mock request/response objects
@@ -169,10 +149,30 @@ describe('Accounts Routes', () => {
 
       const handler = handlers['GET /budgets/:budgetSyncId/accounts'];
       mockReq.query.include_balances = 'true';
+      mockBudget.getAccounts.mockResolvedValueOnce([
+        {
+          id: 'acc1',
+          name: 'Checking',
+          offbudget: false,
+          closed: false,
+          clearedBalance: 1200,
+          unclearedBalance: -100,
+          workingBalance: 1100,
+        },
+        {
+          id: 'acc2',
+          name: 'Savings',
+          offbudget: false,
+          closed: false,
+          clearedBalance: 50,
+          unclearedBalance: 25,
+          workingBalance: 75,
+        },
+      ]);
 
       await handler(mockReq, mockRes, mockNext);
 
-      expect(mockBudget.getAccountsWithBalances).toHaveBeenCalled();
+      expect(mockBudget.getAccounts).toHaveBeenCalledWith({ includeBalances: true, excludeOffbudget: false, excludeClosed: false });
       expect(mockRes.json).toHaveBeenCalledWith({
         data: expect.arrayContaining([
           expect.objectContaining({
@@ -196,7 +196,7 @@ describe('Accounts Routes', () => {
 
       await handler(mockReq, mockRes, mockNext);
 
-      expect(mockBudget.getAccountsWithBalances).toHaveBeenCalledWith({ excludeOffbudget: true, excludeClosed: true });
+      expect(mockBudget.getAccounts).toHaveBeenCalledWith({ includeBalances: true, excludeOffbudget: true, excludeClosed: true });
     });
   });
 
