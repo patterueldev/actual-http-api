@@ -49,7 +49,7 @@ exports.parseBoolean = (value) => {
     return value;
   }
   if (typeof value === 'string') {
-    return value.toLowerCase() === 'true';
+    return value.toLowerCase() === 'true' || value === '1';
   }
   if (typeof value === 'number') {
     return value === 1;

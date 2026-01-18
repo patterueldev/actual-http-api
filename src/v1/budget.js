@@ -69,11 +69,6 @@ async function Budget(budgetSyncId, budgetEncryptionPassword) {
   }
 
   async function getAccounts({ includeBalances = false, excludeOffbudget = false, excludeClosed = false } = {}) {
-    if (!includeBalances) {
-      // backward compatibility
-      return actualApi.getAccounts();
-    }
-
     const filter = {};
     if (excludeOffbudget) filter.offbudget = false;
     if (excludeClosed) filter.closed = false;
@@ -84,32 +79,34 @@ async function Budget(budgetSyncId, budgetEncryptionPassword) {
         .filter(filter)
     ))?.data || [];
 
-    const balanceData = await runAqlQuery(
-      actualApi.q('transactions')
-        .groupBy(['account', 'cleared'])
-        .select([
-          'account',
-          'cleared',
-          { total: { $sum: '$amount' } }
-        ])
-    );
+    if(includeBalances) {
+      const balanceData = await runAqlQuery(
+        actualApi.q('transactions')
+          .groupBy(['account', 'cleared'])
+          .select([
+            'account',
+            'cleared',
+            { total: { $sum: '$amount' } }
+          ])
+      );
 
-    const clearedBalances = new Map();
-    const unclearedBalances = new Map();
+      const clearedBalances = new Map();
+      const unclearedBalances = new Map();
 
-    (balanceData?.data || []).forEach(row => {
-      if (row.cleared) {
-        clearedBalances.set(row.account, row.total);
-      } else {
-        unclearedBalances.set(row.account, row.total);
-      }
-    });
+      (balanceData?.data || []).forEach(row => {
+        if (row.cleared) {
+          clearedBalances.set(row.account, row.total);
+        } else {
+          unclearedBalances.set(row.account, row.total);
+        }
+      });
 
-    accounts.forEach(account => {
-      account.clearedBalance = clearedBalances.get(account.id) || 0;
-      account.unclearedBalance = unclearedBalances.get(account.id) || 0;
-      account.workingBalance = account.clearedBalance + account.unclearedBalance;
-    });
+      accounts.forEach(account => {
+        account.clearedBalance = clearedBalances.get(account.id) || 0;
+        account.unclearedBalance = unclearedBalances.get(account.id) || 0;
+        account.workingBalance = account.clearedBalance + account.unclearedBalance;
+      });
+    }
 
     return accounts;
   }
