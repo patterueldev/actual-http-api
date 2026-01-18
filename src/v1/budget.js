@@ -78,33 +78,39 @@ async function Budget(budgetSyncId, budgetEncryptionPassword) {
     if (excludeOffbudget) filter.offbudget = false;
     if (excludeClosed) filter.closed = false;
 
-    const accountQuery = actualApi.q('accounts')
-      .select(['id', 'name', 'offbudget', 'closed'])
-      .filter(filter);
+    const accounts = (await runAqlQuery(
+      actualApi.q('accounts')
+        .select(['id', 'name', 'offbudget', 'closed'])
+        .filter(filter)
+    ))?.data || [];
 
-    const data = await runAqlQuery(accountQuery);
-    const accounts = data?.data || [];
-
-    await Promise.all(
-      accounts.map(async (account) => {
-        const transactionsQuery = function(clearedStatus) {
-          return actualApi.q('transactions')
-            .select('*')
-            .filter({ account: account.id, cleared: clearedStatus });
-        };
-        const [cleared, uncleared] = await Promise.all([
-          runAqlQuery(transactionsQuery(true)),
-          runAqlQuery(transactionsQuery(false)),
-        ]);
-
-        const clearedBalance = sumTransactions(cleared?.data);
-        const unclearedBalance = sumTransactions(uncleared?.data);
-
-        account.clearedBalance = clearedBalance;
-        account.unclearedBalance = unclearedBalance;
-        account.workingBalance = clearedBalance + unclearedBalance;
-      })
+    const balanceData = await runAqlQuery(
+      actualApi.q('transactions')
+        .groupBy(['account', 'cleared'])
+        .select([
+          'account',
+          'cleared',
+          { total: { $sum: '$amount' } }
+        ])
     );
+
+    const clearedBalances = new Map();
+    const unclearedBalances = new Map();
+
+    (balanceData?.data || []).forEach(row => {
+      if (row.cleared) {
+        clearedBalances.set(row.account, row.total);
+      } else {
+        unclearedBalances.set(row.account, row.total);
+      }
+    });
+
+    accounts.forEach(account => {
+      account.clearedBalance = clearedBalances.get(account.id) || 0;
+      account.unclearedBalance = unclearedBalances.get(account.id) || 0;
+      account.workingBalance = account.clearedBalance + account.unclearedBalance;
+    });
+
     return accounts;
   }
 
@@ -358,22 +364,6 @@ async function Budget(budgetSyncId, budgetEncryptionPassword) {
       fileName: `${new Date().toISOString().split('T')[0]}-${budget.name}.zip`,
       fileStream: archive
     };
-  }
-
-  function sumTransactions(transactions = []) {
-    return (transactions || []).reduce((total, transaction = {}) => {
-      if (transaction.tombstone) {
-        return total;
-      }
-      if (Array.isArray(transaction.subtransactions) && transaction.subtransactions.length > 0) {
-        const subTotal = transaction.subtransactions.reduce(
-          (acc, subTransaction = {}) => acc + (subTransaction.amount || 0),
-          0
-        );
-        return total + subTotal;
-      }
-      return total + (transaction.amount || 0);
-    }, 0);
   }
 
   return {

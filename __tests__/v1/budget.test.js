@@ -24,6 +24,10 @@ const mockQ = jest.fn((table) => {
       filterArgs = args || {};
       return this;
     }),
+    groupBy: jest.fn(function groupBy(field) {
+      builder._groupBy = field;
+      return this;
+    }),
     getFilterArgs: () => filterArgs,
   };
   return builder;
@@ -389,7 +393,7 @@ describe('Budget Module', () => {
     });
 
     it('should aggregate cleared and uncleared balances per account', async () => {
-      // accounts, acc1 cleared, acc1 uncleared, acc2 cleared, acc2 uncleared
+      // accounts query
       mockAqlQuery
         .mockResolvedValueOnce({
           data: [
@@ -397,23 +401,22 @@ describe('Budget Module', () => {
             { id: 'acc2', name: 'Savings', offbudget: false },
           ],
         })
+        // balance data grouped by account and cleared
         .mockResolvedValueOnce({
           data: [
-            { amount: 1000 },
-            { amount: 0, subtransactions: [{ amount: 200 }] },
-            { amount: 500, tombstone: true },
+            { account: 'acc1', cleared: true, total: 1200 },
+            { account: 'acc1', cleared: false, total: -100 },
+            { account: 'acc2', cleared: true, total: 50 },
+            { account: 'acc2', cleared: false, total: 25 },
           ],
-        })
-        .mockResolvedValueOnce({ data: [{ amount: -100 }] })
-        .mockResolvedValueOnce({ data: [{ amount: 50 }] })
-        .mockResolvedValueOnce({ data: [{ amount: 25 }] });
+        });
 
       const accounts = await budget.getAccounts({ includeBalances: true });
       expect(accounts).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             id: 'acc1',
-            clearedBalance: 1200, // 1000 + 200 (subtransactions), tombstone ignored
+            clearedBalance: 1200,
             unclearedBalance: -100,
             workingBalance: 1100,
           }),
@@ -429,7 +432,9 @@ describe('Budget Module', () => {
 
     it('should propagate errors from AQL queries', async () => {
       const error = new Error('AQL failure');
-      mockAqlQuery.mockRejectedValueOnce(error);
+      mockAqlQuery
+        .mockResolvedValueOnce({ data: [] })
+        .mockRejectedValueOnce(error);
       await expect(budget.getAccounts({ includeBalances: true })).rejects.toThrow('AQL failure');
     });
 
@@ -447,7 +452,7 @@ describe('Budget Module', () => {
             : allAccounts;
           return Promise.resolve({ data: filteredAccounts });
         })
-        .mockResolvedValue({ data: [{ amount: 0 }] });
+        .mockResolvedValue({ data: [] });
 
       const accounts = await budget.getAccounts({ includeBalances: true, excludeOffbudget: true });
       expect(accounts.find((a) => a.id === 'acc3')).toBeUndefined();
@@ -467,7 +472,7 @@ describe('Budget Module', () => {
             : allAccounts;
           return Promise.resolve({ data: filteredAccounts });
         })
-        .mockResolvedValue({ data: [{ amount: 0 }] });
+        .mockResolvedValue({ data: [] });
 
       const accounts = await budget.getAccounts({ includeBalances: true, excludeClosed: true });
       expect(accounts.find((a) => a.id === 'acc3')).toBeUndefined();
