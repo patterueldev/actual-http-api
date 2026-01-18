@@ -89,7 +89,7 @@ describe('Actual Client Provider', () => {
         shutdown: jest.fn().mockResolvedValue(undefined),
       };
       jest.doMock('@actual-app/api', () => mockActualApi);
-      
+
       const client1 = await provider.getActualApiClient();
       const client2 = await provider.getActualApiClient();
 
@@ -114,6 +114,54 @@ describe('Actual Client Provider', () => {
         serverURL: 'http://localhost:5006',
         password: 'password',
       });
+    });
+  });
+
+  describe('runAqlQuery', () => {
+    it('should call getActualApiClient', async () => {
+      const fs = require('fs');
+      fs.existsSync = jest.fn().mockReturnValue(true);
+      const mockActualApi = {
+        init: jest.fn().mockResolvedValue(undefined),
+        shutdown: jest.fn().mockResolvedValue(undefined),
+        aqlQuery: jest.fn().mockResolvedValue({ data: [] }),
+      };
+      jest.doMock('@actual-app/api', () => mockActualApi);
+
+      const query = 'test query';
+      await provider.runAqlQuery(query);
+
+      expect(mockActualApi.aqlQuery).toHaveBeenCalledWith(query);
+    });
+
+    it('should return query result', async () => {
+      const fs = require('fs');
+      fs.existsSync = jest.fn().mockReturnValue(true);
+      const expectedData = [{ id: 1, name: 'test' }];
+      const mockActualApi = {
+        init: jest.fn().mockResolvedValue(undefined),
+        shutdown: jest.fn().mockResolvedValue(undefined),
+        aqlQuery: jest.fn().mockResolvedValue({ data: expectedData }),
+      };
+      jest.doMock('@actual-app/api', () => mockActualApi);
+
+      const result = await provider.runAqlQuery('query');
+
+      expect(result).toEqual({ data: expectedData });
+    });
+
+    it('should handle errors from aqlQuery', async () => {
+      const fs = require('fs');
+      fs.existsSync = jest.fn().mockReturnValue(true);
+      const error = new Error('Query failed');
+      const mockActualApi = {
+        init: jest.fn().mockResolvedValue(undefined),
+        shutdown: jest.fn().mockResolvedValue(undefined),
+        aqlQuery: jest.fn().mockRejectedValue(error),
+      };
+      jest.doMock('@actual-app/api', () => mockActualApi);
+
+      await expect(provider.runAqlQuery('query')).rejects.toThrow('Query failed');
     });
   });
 });

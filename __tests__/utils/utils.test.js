@@ -9,6 +9,7 @@ const {
   listSubDirectories,
   getFileContent,
   parseNumericBoolean,
+  parseBoolean,
   paginate,
   validatePaginationParameters,
 } = require('../../src/utils/utils');
@@ -150,6 +151,67 @@ describe('Utils', () => {
       expect(parseNumericBoolean(2)).toBe(2);
       expect(parseNumericBoolean('yes')).toBe('yes');
       expect(parseNumericBoolean(null)).toBe(null);
+    });
+  });
+
+  describe('parseBoolean', () => {
+    it('should return false for undefined', () => {
+      expect(parseBoolean(undefined)).toBe(false);
+    });
+
+    it('should return false for null', () => {
+      expect(parseBoolean(null)).toBe(false);
+    });
+
+    it('should return false for empty string', () => {
+      expect(parseBoolean('')).toBe(false);
+    });
+
+    it('should return true for boolean true', () => {
+      expect(parseBoolean(true)).toBe(true);
+    });
+
+    it('should return false for boolean false', () => {
+      expect(parseBoolean(false)).toBe(false);
+    });
+
+    it('should return true for string "true"', () => {
+      expect(parseBoolean('true')).toBe(true);
+    });
+
+    it('should return true for string "TRUE"', () => {
+      expect(parseBoolean('TRUE')).toBe(true);
+    });
+
+    it('should return true for string "True"', () => {
+      expect(parseBoolean('True')).toBe(true);
+    });
+
+    it('should return false for other strings', () => {
+      expect(parseBoolean('false')).toBe(false);
+      expect(parseBoolean('yes')).toBe(false);
+      expect(parseBoolean('1')).toBe(false);
+      expect(parseBoolean('anything')).toBe(false);
+    });
+
+    it('should return true for number 1', () => {
+      expect(parseBoolean(1)).toBe(true);
+    });
+
+    it('should return false for number 0', () => {
+      expect(parseBoolean(0)).toBe(false);
+    });
+
+    it('should return false for other numbers', () => {
+      expect(parseBoolean(2)).toBe(false);
+      expect(parseBoolean(-1)).toBe(false);
+      expect(parseBoolean(100)).toBe(false);
+    });
+
+    it('should return false for other types', () => {
+      expect(parseBoolean({})).toBe(false);
+      expect(parseBoolean([])).toBe(false);
+      expect(parseBoolean(() => {})).toBe(false);
     });
   });
 
