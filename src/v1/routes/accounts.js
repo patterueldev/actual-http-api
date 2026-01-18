@@ -1,5 +1,5 @@
 
-const { isEmpty, formatDateToISOString } = require('../../utils/utils');
+const { isEmpty, formatDateToISOString, parseBoolean } = require('../../utils/utils');
 
 /**
  * @swagger
@@ -131,10 +131,10 @@ module.exports = (router) => {
    */
   router.get('/budgets/:budgetSyncId/accounts', async (req, res, next) => {
     try {
-      const includeBalances = req.query.include_balances === 'true' || req.query.include_balances === '1';
-      const excludeOffbudget = req.query.exclude_offbudget === 'true' || req.query.exclude_offbudget === '1';
-      const excludeClosed = req.query.exclude_closed === 'true' || req.query.exclude_closed === '1';
-      
+      const includeBalances = parseBoolean(req.query.include_balances);
+      const excludeOffbudget = parseBoolean(req.query.exclude_offbudget);
+      const excludeClosed = parseBoolean(req.query.exclude_closed);
+
       res.json({ data: await res.locals.budget.getAccounts({ 
         includeBalances, 
         excludeOffbudget, 

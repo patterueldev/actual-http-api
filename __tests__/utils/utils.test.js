@@ -153,6 +153,68 @@ describe('Utils', () => {
     });
   });
 
+  describe('parseBoolean', () => {
+    it('should return false for undefined', () => {
+      expect(parseBoolean(undefined)).toBe(false);
+    });
+
+    it('should return false for null', () => {
+      expect(parseBoolean(null)).toBe(false);
+    });
+
+    it('should return false for empty string', () => {
+      expect(parseBoolean('')).toBe(false);
+    });
+
+    it('should return true for boolean true', () => {
+      expect(parseBoolean(true)).toBe(true);
+    });
+
+    it('should return false for boolean false', () => {
+      expect(parseBoolean(false)).toBe(false);
+    });
+
+    it('should return true for string "true"', () => {
+      expect(parseBoolean('true')).toBe(true);
+    });
+
+    it('should return true for string "TRUE" (case insensitive)', () => {
+      expect(parseBoolean('TRUE')).toBe(true);
+    });
+
+    it('should return false for string "false"', () => {
+      expect(parseBoolean('false')).toBe(false);
+    });
+
+    it('should return false for string "FALSE" (case insensitive)', () => {
+      expect(parseBoolean('FALSE')).toBe(false);
+    });
+
+    it('should return true for string "1"', () => {
+      expect(parseBoolean('1')).toBe(true);
+    });
+
+    it('should return true for string "1.0"', () => {
+      expect(parseBoolean('1.0')).toBe(true);
+    });
+
+    it('should return false for string "0"', () => {
+      expect(parseBoolean('0')).toBe(false);
+    });
+
+    it('should return false for string "0.0"', () => {
+      expect(parseBoolean('0.0')).toBe(false);
+    });
+
+    it('should return false for string "yes"', () => {
+      expect(parseBoolean('yes')).toBe(false);
+    });
+
+    it('should return false for string "no"', () => {
+      expect(parseBoolean('no')).toBe(false);
+    });
+  });
+
   describe('paginate', () => {
     const testArray = Array.from({ length: 25 }, (_, i) => ({ id: i + 1 }));
 
